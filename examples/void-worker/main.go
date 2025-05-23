@@ -9,7 +9,7 @@ import (
 
 func main() {
 	w := varmq.NewVoidWorker(func(data int) {
-		fmt.Printf("Processing: %d\n", data)
+		// fmt.Printf("Processing: %d\n", data)
 		time.Sleep(1 * time.Second)
 	}, 100)
 
@@ -18,8 +18,13 @@ func main() {
 	defer func() {
 		fmt.Println("Time taken:", time.Since(start))
 	}()
-	defer q.WaitAndClose()
+	defer q.WaitUntilFinished()
 	defer fmt.Println("Added jobs")
+
+	go func() {
+		q.WaitUntilFinished()
+		fmt.Println("Finished")
+	}()
 
 	for i := range 1000 {
 		q.Add(i)

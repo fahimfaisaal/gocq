@@ -22,7 +22,8 @@ func TestJob(t *testing.T) {
 		assert.Equal(jobData, j.Data(), "job data should match")
 		assert.Equal("Created", j.Status(), "job status should be 'Created'")
 		assert.False(j.IsClosed(), "job should not be closed initially")
-		assert.NotNil(j.resultChannel, "result channel should be initialized")
+		// Result controller should be nil initially
+		assert.Nil(j.resultController, "result controller should not be initialized yet")
 	})
 
 	t.Run("job status transitions", func(t *testing.T) {
@@ -51,21 +52,42 @@ func TestJob(t *testing.T) {
 		assert.True(j.IsClosed(), "job should be marked as closed")
 	})
 
+	t.Run("initializing result capability with withResult", func(t *testing.T) {
+		// Create a new job
+		jobData := "test data"
+		jobId := "job-init-result"
+		j := newJob[string, int](jobData, jobConfigs{Id: jobId})
+		
+		// Initially result controller should be nil
+		assert := assert.New(t)
+		assert.Nil(j.resultController, "result controller should not be initialized initially")
+		
+		// Initialize result capability
+		bufferSize := 5
+		j.withResult(bufferSize)
+		
+		// Now result controller should be initialized
+		assert.NotNil(j.resultController, "result controller should be initialized after withResult call")
+		assert.NotNil(j.resultController.ch, "result channel should be initialized")
+	})
+
 	t.Run("saving and sending results", func(t *testing.T) {
 		// Create a new job
 		j := newJob[string, int]("test data", jobConfigs{Id: "job-result"})
+		// Initialize result capability
+		j.withResult(1)
 		assert := assert.New(t)
 
 		// Save and send a result
 		expectedResult := 42
 		j.SaveAndSendResult(expectedResult)
 
-		// Check if result was saved correctly
-		assert.Equal(expectedResult, j.Output.Data, "result should be saved in output")
-		assert.Nil(j.Output.Err, "error should be nil")
+		// Verify result is stored in output field
+		result, err := j.Result()
+		assert.Equal(result, j.resultController.Output.Data, "result should be stored in output field")
+		assert.Nil(j.resultController.Output.Err, "error should be nil")
 
 		// Get the result
-		result, err := j.Result()
 		assert.Equal(expectedResult, result, "result should match what was sent")
 		assert.Nil(err, "error should be nil")
 	})
@@ -73,6 +95,8 @@ func TestJob(t *testing.T) {
 	t.Run("saving and sending errors", func(t *testing.T) {
 		// Create a new job
 		j := newJob[string, int]("test data", jobConfigs{Id: "job-error"})
+		// Initialize result capability
+		j.withResult(1)
 		assert := assert.New(t)
 
 		// Save and send an error
@@ -81,8 +105,8 @@ func TestJob(t *testing.T) {
 
 		// Check if error was saved correctly
 		var zeroValue int
-		assert.Equal(zeroValue, j.Output.Data, "data should be zero value")
-		assert.Equal(expectedErr, j.Output.Err, "error should be saved in output")
+		assert.Equal(zeroValue, j.resultController.Output.Data, "data should be zero value")
+		assert.Equal(expectedErr, j.resultController.Output.Err, "error should be stored in output field")
 
 		// Get the result
 		result, err := j.Result()
@@ -93,6 +117,8 @@ func TestJob(t *testing.T) {
 	t.Run("job JSON serialization", func(t *testing.T) {
 		// Create a new job with a result
 		j := newJob[string, int]("test data", jobConfigs{Id: "job-json"})
+		// Initialize result capability
+		j.withResult(1)
 		j.SaveAndSendResult(42)
 
 		assert := assert.New(t)
@@ -114,6 +140,8 @@ func TestJob(t *testing.T) {
 	t.Run("closing a job", func(t *testing.T) {
 		// Create a new job
 		j := newJob[string, int]("test data", jobConfigs{Id: "job-close"})
+		// Initialize result capability
+		j.withResult(1)
 		assert := assert.New(t)
 
 		// Close the job

@@ -54,6 +54,25 @@ func (eq *externalQueue[T, R]) postEnqueue(j iJob[T, R]) {
 	}
 }
 
+func (eq *externalQueue[T, R]) newJob(data T, configs jobConfigs) *job[T, R] {
+	j := newJob[T, R](data, configs)
+
+	if _, ok := eq.worker.workerFunc.(VoidWorkerFunc[T]); !ok {
+		j.withResult(1)
+	}
+
+	return j
+}
+
+func (eq *externalQueue[T, R]) newGroupJob(len int) *groupJob[T, R] {
+	j := newGroupJob[T, R](len)
+
+	if _, ok := eq.worker.workerFunc.(VoidWorkerFunc[T]); !ok {
+		j.withResult(len)
+	}
+
+	return j
+}
 func (eq *externalQueue[T, R]) NumPending() int {
 	return eq.Queue.Len()
 }

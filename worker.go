@@ -119,6 +119,11 @@ func (w *worker[T, R]) isNullCache() bool {
 	return w.Cache == getCache()
 }
 
+func (w *worker[T, R]) isVoid() bool {
+	_, ok := w.workerFunc.(VoidWorkerFunc[T])
+	return ok
+}
+
 // spawnWorker starts a worker goroutine to process jobs from the specified channel
 // It continuously reads jobs from the channel and processes each one
 // Each job processing is wrapped in its own function with proper cleanup
